@@ -1,13 +1,41 @@
 {
   "name": "typeinfo-ts",
-  "private": true,
-  "version": "0.0.0",
+  "version": "1.0.0",
   "type": "module",
+  "description": "Polkadot.js TypeScript code generator from Substrate type information",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
+    "build:lib": "tsc --project tsconfig.lib.json",
+    "prepublishOnly": "npm run build:lib",
     "lint": "eslint .",
     "preview": "vite preview"
+  },
+  "keywords": [
+    "polkadot",
+    "substrate",
+    "typescript",
+    "code-generator",
+    "typeinfo",
+    "blockchain"
+  ],
+  "author": "Your Name",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/yourusername/typeinfo-ts.git"
   },
   "dependencies": {
     "@heroui/react": "2.8.0-beta.10",

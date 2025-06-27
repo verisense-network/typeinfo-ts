@@ -3,7 +3,7 @@
 
 export interface TypeInfo {
   id: number;
-  type: {
+  ty: {
     def: TypeDef;
     params?: Array<{ name: string; type: number }>;
     path?: string[];
@@ -21,7 +21,11 @@ export interface TypeDef {
   };
   variant?: {
     variants: Array<{
-      fields?: Array<{ type: number; typeName?: string }>;
+      fields?: Array<{ 
+        name?: string;
+        type: number; 
+        typeName?: string 
+      }>;
       index: number;
       name: string;
     }>;
@@ -90,12 +94,46 @@ export class TypeInfoParser {
    * Infer type names
    */
   private inferTypeName(id: number, typeInfo: TypeInfo): string {
-    // If there is path information, use the last part of the path
-    if (typeInfo.type.path && typeInfo.type.path.length > 0) {
-      return typeInfo.type.path[typeInfo.type.path.length - 1];
+    const def = typeInfo.ty.def;
+
+    // Check if it is a special Result or Option type to avoid conflicts with base classes
+    if (def.variant) {
+      // Check if it is a Result type
+      if (def.variant.variants.length === 2 && 
+          def.variant.variants.some(v => v.name === 'Ok') && 
+          def.variant.variants.some(v => v.name === 'Err')) {
+        return `CustomResult${id}`;
+      }
+      
+      // Check if it is an Option type
+      if (def.variant.variants.some(v => v.name === 'None') && 
+          def.variant.variants.some(v => v.name === 'Some')) {
+        return `CustomOption${id}`;
+      }
     }
 
-    const def = typeInfo.type.def;
+    // If there is path information, use the last part of the path
+    if (typeInfo.ty.path && typeInfo.ty.path.length > 0) {
+      const baseName = typeInfo.ty.path[typeInfo.ty.path.length - 1];
+      
+      if (typeInfo.ty.params && typeInfo.ty.params.length > 0) {
+        return `${baseName}${id}`;
+      }
+      
+      const existingTypesWithSameName = Array.from(this.types.entries())
+        .filter(([otherId, otherType]) => 
+          otherId !== id && 
+          otherType.ty.path && 
+          otherType.ty.path.length > 0 &&
+          otherType.ty.path[otherType.ty.path.length - 1] === baseName
+        );
+      
+      if (existingTypesWithSameName.length > 0) {
+        return `${baseName}${id}`;
+      }
+      
+      return baseName;
+    }
 
     // Basic types
     if (def.primitive) {
@@ -118,8 +156,7 @@ export class TypeInfoParser {
       if (def.tuple.length === 0) {
         return 'Null';
       }
-      const types = def.tuple.map(t => this.getTypeName(t));
-      return `Tuple.with([${types.join(', ')}])`;
+      return `TupleType${id}`;
     }
 
     // Composite types - infer name based on fields
@@ -127,22 +164,8 @@ export class TypeInfoParser {
       return `Type${id}`;
     }
 
-    // Variant types - infer name based on variants
+    // Other variant types
     if (def.variant) {
-      // Check if it is a Result type
-      if (def.variant.variants.length === 2 && 
-          def.variant.variants.some(v => v.name === 'Ok') && 
-          def.variant.variants.some(v => v.name === 'Err')) {
-        return `Result`;
-      }
-      
-      // Check if it is an Option type
-      if (def.variant.variants.length === 2 && 
-          def.variant.variants.some(v => v.name === 'None') && 
-          def.variant.variants.some(v => v.name === 'Some')) {
-        return `Option`;
-      }
-
       return `Type${id}`;
     }
 

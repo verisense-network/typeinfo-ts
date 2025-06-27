@@ -1,0 +1,26 @@
+# Development files
+src/
+public/
+index.html
+vite.config.ts
+tsconfig.*.json
+eslint.config.js
+tailwind.config.js
+
+# Test files
+callTest.ts
+testCode.ts
+
+# Development dependencies
+node_modules/
+.git/
+.gitignore
+.vscode/
+.env*
+
+# Build artifacts (keep only dist)
+.cache/
+
+# Documentation for development
+*.md
+!README.md 

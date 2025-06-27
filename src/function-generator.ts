@@ -41,11 +41,12 @@ export class FunctionGenerator {
     const parameterCode = this.generateParameters(func);
     const encodingCode = this.generateEncoding(func);
     const decodingCode = this.generateDecoding(func, returnType);
+    const apiCallCode = this.generateApiCall(func);
 
     return `export async function ${func.name}(nucleusId: string${parameterCode}): Promise<any> {
   if (!api) throw new Error('API not initialized');
 ${encodingCode}
-  const response = await api.rpc('nucleus_${func.method}', nucleusId, '${func.name}', u8aToHex(${this.getEncodingVariable(func)}?.toU8a()));
+  const response = await api.rpc('nucleus_${func.method}', nucleusId, '${func.name}'${apiCallCode});
 
   const responseBytes = Buffer.from(response as string, "hex");
   return ${decodingCode};
@@ -81,7 +82,7 @@ ${encodingCode}
    */
   private generateEncoding(func: FunctionInfo): string {
     if (func.param_types.length === 0) {
-      return '  const emptyData = new Null(registry);';
+      return '';  // No encoding needed for functions without parameters
     }
 
     if (func.param_types.length === 1) {
@@ -96,6 +97,18 @@ ${encodingCode}
       const argNames = func.param_types.map((_, index) => `${this.getArgumentName(func, index)}Arg`);
       
       return `  const args = new Tuple(registry, [${paramTypes.join(', ')}], [${argNames.join(', ')}]);`;
+    }
+  }
+
+  /**
+   * Generate API call parameter code
+   */
+  private generateApiCall(func: FunctionInfo): string {
+    if (func.param_types.length === 0) {
+      return ", u8aToHex(new Uint8Array([0]))";  // 0x00 for functions without arguments
+    } else {
+      const encodingVar = this.getEncodingVariable(func);
+      return `, u8aToHex(${encodingVar}?.toU8a())`;
     }
   }
 

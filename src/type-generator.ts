@@ -45,13 +45,18 @@ export class TypeGenerator {
     this.log('Start generating type definitions...');
     
     const types = this.parser.getTypes();
+    
+    const sortedTypeIds = this.topologicalSortTypes(types);
+    
     let output = '';
     
-    // Then generate complex type definitions
-    for (const [id, typeInfo] of types) {
-      const typeDef = this.generateTypeDefinition(id, typeInfo);
-      if (typeDef) {
-        output += typeDef + '\n\n';
+    for (const id of sortedTypeIds) {
+      const typeInfo = types.get(id);
+      if (typeInfo) {
+        const typeDef = this.generateTypeDefinition(id, typeInfo);
+        if (typeDef) {
+          output += typeDef + '\n\n';
+        }
       }
     }
 
@@ -59,11 +64,147 @@ export class TypeGenerator {
   }
 
   /**
+   * Topological sort types to ensure correct dependency relationships
+   */
+  private topologicalSortTypes(types: Map<number, TypeInfo>): number[] {
+    const dependencies = new Map<number, Set<number>>();
+    const inDegree = new Map<number, number>();
+    
+    for (const [id] of types) {
+      dependencies.set(id, new Set());
+      inDegree.set(id, 0);
+    }
+    
+    // Analyze dependencies
+    for (const [id, typeInfo] of types) {
+      const deps = this.getTypeDependencies(typeInfo);
+      dependencies.set(id, deps);
+      
+      inDegree.set(id, deps.size);
+    }
+    
+    const queue: number[] = [];
+    const result: number[] = [];
+    
+    for (const [id, degree] of inDegree) {
+      if (degree === 0) {
+        queue.push(id);
+      }
+    }
+    
+    while (queue.length > 0) {
+      const currentId = queue.shift()!;
+      result.push(currentId);
+      
+      for (const [id, deps] of dependencies) {
+        if (deps.has(currentId)) {
+          const newDegree = (inDegree.get(id) || 0) - 1;
+          inDegree.set(id, newDegree);
+          if (newDegree === 0) {
+            queue.push(id);
+          }
+        }
+      }
+    }
+    
+    if (result.length < types.size) {
+      for (const [id] of types) {
+        if (!result.includes(id)) {
+          result.push(id);
+        }
+      }
+    }
+    
+    return result;
+  }
+
+  /**
+   * Get the dependencies of a type
+   */
+  private getTypeDependencies(typeInfo: TypeInfo): Set<number> {
+    const dependencies = new Set<number>();
+    const def = typeInfo.ty.def;
+    
+    if (def.composite) {
+      for (const field of def.composite.fields) {
+        if (this.needsTypeDefinition(field.type)) {
+          dependencies.add(field.type);
+        }
+      }
+    }
+    
+    if (def.variant) {
+      for (const variant of def.variant.variants) {
+        if (variant.fields) {
+          for (const field of variant.fields) {
+            if (this.needsTypeDefinition(field.type)) {
+              dependencies.add(field.type);
+            }
+          }
+        }
+      }
+      
+      // Check dependencies in params
+      if (typeInfo.ty.params) {
+        for (const param of typeInfo.ty.params) {
+          if (this.needsTypeDefinition(param.type)) {
+            dependencies.add(param.type);
+          }
+        }
+      }
+    }
+    
+    if (def.sequence) {
+      if (this.needsTypeDefinition(def.sequence.type)) {
+        dependencies.add(def.sequence.type);
+      }
+    }
+    
+    if (def.array) {
+      if (this.needsTypeDefinition(def.array.type)) {
+        dependencies.add(def.array.type);
+      }
+    }
+    
+    if (def.tuple) {
+      for (const typeId of def.tuple) {
+        if (this.needsTypeDefinition(typeId)) {
+          dependencies.add(typeId);
+        }
+      }
+    }
+    
+    return dependencies;
+  }
+
+  /**
+   * Check if a type needs to be generated
+   */
+  private needsTypeDefinition(typeId: number): boolean {
+    const types = this.parser.getTypes();
+    const typeInfo = types.get(typeId);
+    
+    if (!typeInfo) {
+      return false;
+    }
+    
+    const def = typeInfo.ty.def;
+    
+    // Basic types don't need to be generated
+    if (def.primitive) {
+      return false;
+    }
+    
+    // Other types need to be generated
+    return true;
+  }
+
+  /**
    * Generate a single type definition
    */
   private generateTypeDefinition(id: number, typeInfo: TypeInfo): string | null {
     const typeName = this.parser.getTypeName(id);
-    const def = typeInfo.type.def;
+    const def = typeInfo.ty.def;
 
     this.log(`Generate type definition: ID=${id}, name=${typeName}`, def);
 
@@ -81,12 +222,21 @@ export class TypeGenerator {
 
     // Composite types (Struct)
     if (def.composite) {
+      // Special handling for H160 type (single field with array type [u8; 20])
+      if (this.isSpecialArrayWrapper(typeInfo, def.composite)) {
+        const arrayField = def.composite.fields[0];
+        const arrayTypeInfo = this.parser.getTypes().get(arrayField.type);
+        if (arrayTypeInfo?.ty.def.array) {
+          const byteLength = arrayTypeInfo.ty.def.array.len * 8;
+          return `export const ${typeName} = U8aFixed.with(${byteLength} as U8aBitLength);`;
+        }
+      }
       return this.generateStructType(typeName, def.composite);
     }
 
     // Variant types (Enum)
     if (def.variant) {
-      return this.generateEnumType(typeName, def.variant, typeInfo.type.params);
+      return this.generateEnumType(typeName, def.variant, typeInfo.ty.params);
     }
 
     // Array types
@@ -165,14 +315,22 @@ export class TypeGenerator {
       if (!variantItem.fields || variantItem.fields.length === 0) {
         output += `      ${variantItem.name}: Null,\n`;
       } else if (variantItem.fields.length === 1) {
-        const fieldType = this.parser.getTypeName(variantItem.fields[0].type);
-        output += `      ${variantItem.name}: ${fieldType},\n`;
+        const field = variantItem.fields[0];
+        const fieldType = this.parser.getTypeName(field.type);
+        
+        if (field.name) {
+          output += `      ${variantItem.name}: Struct.with({\n`;
+          output += `        ${field.name}: ${fieldType}\n`;
+          output += `      }),\n`;
+        } else {
+          output += `      ${variantItem.name}: ${fieldType},\n`;
+        }
       } else {
         // Multiple fields, create a struct
         output += `      ${variantItem.name}: Struct.with({\n`;
         for (const field of variantItem.fields) {
           const fieldType = this.parser.getTypeName(field.type);
-          const fieldName = field.typeName || `field${field.type}`;
+          const fieldName = field.name || field.typeName || `field${field.type}`;
           output += `        ${fieldName}: ${fieldType},\n`;
         }
         output += `      }),\n`;
@@ -236,6 +394,36 @@ export class TypeGenerator {
     super(registry, value);
   }
 }`;
+  }
+
+  /**
+   * Check if composite type is a special array wrapper (like H160)
+   */
+  private isSpecialArrayWrapper(typeInfo: TypeInfo, composite: NonNullable<TypeDef['composite']>): boolean {
+    // Check if it has path and the type name suggests it's a special type like H160
+    if (typeInfo.ty.path && typeInfo.ty.path.length > 0) {
+      const typeName = typeInfo.ty.path[typeInfo.ty.path.length - 1];
+      // Check for H160 or similar hash types
+      if (typeName === 'H160' || typeName === 'H256' || typeName === 'H512') {
+        return true;
+      }
+    }
+    
+    // Check if it's a composite with single field that has typeName indicating it's an array
+    if (composite.fields.length === 1) {
+      const field = composite.fields[0];
+      if (field.typeName && field.typeName.match(/\[u8;\s*\d+\]/)) {
+        return true;
+      }
+      
+      // Check if the field type is actually an array type
+      const fieldTypeInfo = this.parser.getTypes().get(field.type);
+      if (fieldTypeInfo?.ty.def.array) {
+        return true;
+      }
+    }
+    
+    return false;
   }
 
   /**

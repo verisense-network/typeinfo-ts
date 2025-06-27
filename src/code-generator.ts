@@ -110,7 +110,7 @@ export async function initApi(endpoint: string): Promise<ApiPromise> {
     
     for (const [id, typeName] of typeNames) {
       const typeInfo = this.parser.getTypes().get(id);
-      if (typeInfo && !typeInfo.type.def.primitive) {
+      if (typeInfo && !typeInfo.ty.def.primitive) {
         // Skip basic type names to avoid duplicate registration
         if (!this.isBasicTypeName(typeName)) {
           registrationEntries.push(`      ${typeName}: ${typeName}`);

@@ -1,69 +1,125 @@
-# React + TypeScript + Vite
+# TypeInfo-TS
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+A library for generating Polkadot.js TypeScript code from Substrate runtime type information.
 
-Currently, two official plugins are available:
+## Features
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+- 🚀 Automatically generate TypeScript type definitions from Substrate type information
+- 📦 Generate Polkadot.js compatible API call functions
+- 🔧 Support complex types like Struct, Enum, Result, Option, etc.
+- ✨ Special handling for hash types like H160, H256
+- 🛠️ Complete type registration and API initialization code
 
-## Expanding the ESLint configuration
+## Installation
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
-
-```js
-export default tseslint.config([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-
-      // Remove tseslint.configs.recommended and replace with this
-      ...tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      ...tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      ...tseslint.configs.stylisticTypeChecked,
-
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```bash
+npm install typeinfo-ts
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+## Quick Start
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+```typescript
+import { generatePolkadotCode, TypeInfoData } from 'typeinfo-ts';
 
-export default tseslint.config([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+// Your Substrate runtime type information data
+const typeInfoData: TypeInfoData = {
+  functions: [
+    {
+      method: "get",
+      name: "get_account_count",
+      param_types: [],
+      return_type: 6
+    }
+  ],
+  types: [
+    // ... type definitions
+  ]
+};
+
+// Generate complete TypeScript code
+const generatedCode = generatePolkadotCode(typeInfoData, true); // true enables debugging
+
+console.log(generatedCode);
 ```
+
+## Advanced Usage
+
+If you need more fine-grained control, you can use individual generators:
+
+```typescript
+import { 
+  TypeInfoParser, 
+  TypeGenerator, 
+  FunctionGenerator, 
+  CodeGenerator 
+} from 'typeinfo-ts';
+
+// Create parser
+const parser = new TypeInfoParser(true); // Enable debugging
+parser.parseTypeInfo(typeInfoData);
+
+// Generate type definitions
+const typeGenerator = new TypeGenerator(parser, true);
+const types = typeGenerator.generateAllTypes();
+
+// Generate function definitions
+const functionGenerator = new FunctionGenerator(parser, true);
+const functions = functionGenerator.generateAllFunctions();
+
+// Or use the complete code generator
+const codeGenerator = new CodeGenerator(true);
+const completeCode = codeGenerator.generateFromJson(typeInfoData);
+```
+
+## API Reference
+
+### `generatePolkadotCode(data, debug?)`
+
+Generates complete Polkadot.js TypeScript code.
+
+**Parameters:**
+- `data: TypeInfoData` - Substrate type information data
+- `debug?: boolean` - Whether to enable debug logging (default false)
+
+**Returns:** `string` - Generated TypeScript code
+
+### Core Classes
+
+#### `TypeInfoParser`
+Parses and manages type information data.
+
+#### `TypeGenerator` 
+Generates TypeScript type definitions.
+
+#### `FunctionGenerator`
+Generates API call functions.
+
+#### `CodeGenerator`
+Combines all generators to produce complete code.
+
+## Generated Code Examples
+
+For H160 type, generates:
+```typescript
+export const H160 = U8aFixed.with(160 as U8aBitLength);
+```
+
+For parameter-less functions, generates:
+```typescript
+export async function get_account_count(nucleusId: string): Promise<any> {
+  if (!api) throw new Error('API not initialized');
+
+  const response = await api.rpc('nucleus_get', nucleusId, 'get_account_count', '');
+
+  const responseBytes = Buffer.from(response as string, "hex");
+  return new u128(registry, responseBytes);
+}
+```
+
+## License
+
+MIT
+
+## Contributing
+
+Issues and Pull Requests are welcome!
