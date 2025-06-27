@@ -31,7 +31,7 @@ npm publish
 ### 5. Verify Publication
 
 ```bash
-npm view typeinfo-ts
+npm view @verisense-network/typeinfo-ts
 ```
 
 ## Usage Example
@@ -39,11 +39,11 @@ npm view typeinfo-ts
 Other projects can use your library like this:
 
 ```bash
-npm install typeinfo-ts
+npm install @verisense-network/typeinfo-ts
 ```
 
 ```typescript
-import { generatePolkadotCode, TypeInfoData } from 'typeinfo-ts';
+import { generatePolkadotCode, TypeInfoData } from '@verisense-network/typeinfo-ts';
 
 const typeInfo: TypeInfoData = {
   functions: [/* ... */],
@@ -69,16 +69,3 @@ Then republish:
 ```bash
 npm publish
 ```
-
-## Library File Structure
-
-Package structure after publishing:
-```
-typeinfo-ts/
-├── dist/           # Compiled code
-│   ├── index.js    # Main entry point
-│   ├── index.d.ts  # Type declarations
-│   └── ...         # Other generated files
-├── package.json    # Package configuration
-└── README.md       # Documentation
-``` 

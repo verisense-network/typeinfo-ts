@@ -13,13 +13,13 @@ A library for generating Polkadot.js TypeScript code from Substrate runtime type
 ## Installation
 
 ```bash
-npm install typeinfo-ts
+npm install @verisense-network/typeinfo-ts
 ```
 
 ## Quick Start
 
 ```typescript
-import { generatePolkadotCode, TypeInfoData } from 'typeinfo-ts';
+import { generatePolkadotCode, TypeInfoData } from '@verisense-network/typeinfo-ts';
 
 // Your Substrate runtime type information data
 const typeInfoData: TypeInfoData = {
@@ -52,7 +52,7 @@ import {
   TypeGenerator, 
   FunctionGenerator, 
   CodeGenerator 
-} from 'typeinfo-ts';
+} from '@verisense-network/typeinfo-ts';
 
 // Create parser
 const parser = new TypeInfoParser(true); // Enable debugging
