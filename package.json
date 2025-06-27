@@ -1,5 +1,5 @@
 {
-  "name": "typeinfo-ts",
+  "name": "@verisense-network/typeinfo-ts",
   "version": "1.0.0",
   "type": "module",
   "description": "Polkadot.js TypeScript code generator from Substrate type information",
@@ -31,11 +31,11 @@
     "typeinfo",
     "blockchain"
   ],
-  "author": "Your Name",
+  "author": "Verisense Network",
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/yourusername/typeinfo-ts.git"
+    "url": "https://github.com/verisense-network/typeinfo-ts.git"
   },
   "dependencies": {
     "@heroui/react": "2.8.0-beta.10",
